@@ -1,0 +1,26 @@
+# Heavy ML dependencies for running Unlimited-OCR locally.
+#
+# Kept separate from requirements.txt so the FastAPI service can be developed
+# and /health exercised WITHOUT downloading multi-GB ML wheels or model weights.
+#
+# Unlimited-OCR is a CUDA / bfloat16 vision-language model. Install these on a
+# CUDA GPU host (see the root README "HARDWARE NOTE"). The pins below mirror the
+# versions upstream tested on (Python 3.12.3 + CUDA 12.9) — adjust the torch
+# build to match your CUDA / platform via https://pytorch.org/get-started/locally/.
+#
+# Install:  pip install -r requirements-ocr.txt
+
+torch==2.10.0
+torchvision==0.25.0
+transformers==4.57.1
+Pillow==12.1.1
+matplotlib==3.10.8
+einops==0.8.2
+addict==2.4.0
+easydict==1.13
+psutil==7.2.2
+# pymupdf is already pinned in requirements.txt (upstream tested 1.27.2.2).
+
+# Optional: high-throughput concurrent inference via SGLang.
+# A prebuilt wheel ships in vendor/Unlimited-OCR/wheel/ — install it directly,
+# e.g.:  pip install vendor/Unlimited-OCR/wheel/sglang-*.whl

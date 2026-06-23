@@ -1,0 +1,43 @@
+# ---- Python / backend ----
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment files (never commit real secrets; .env.example is tracked)
+.env
+.env.*
+!.env.example
+
+# ---- ML model caches / weights (can be many GB — never commit) ----
+.cache/
+**/.cache/huggingface/
+hf_cache/
+models/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.gguf
+
+# ---- App data (downloaded PDFs, OCR output) ----
+backend/data/
+
+# ---- Node / frontend ----
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+.vercel/
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/

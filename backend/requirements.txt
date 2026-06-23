@@ -1,0 +1,14 @@
+# Core backend dependencies (pinned).
+# Install with:  pip install -r requirements.txt
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+httpx==0.28.1
+pymupdf==1.25.2
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# --- Heavy ML / OCR dependencies live in requirements-ocr.txt ---
+# torch, transformers, accelerate, ... are NOT installed here so the API can be
+# developed without a GPU. Install them on a CUDA host to run real OCR:
+#     pip install -r requirements-ocr.txt
+# See the root README "HARDWARE NOTE" for details.
