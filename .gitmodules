@@ -1,0 +1,3 @@
+[submodule "backend/vendor/Unlimited-OCR"]
+	path = backend/vendor/Unlimited-OCR
+	url = https://github.com/baidu/Unlimited-OCR.git
