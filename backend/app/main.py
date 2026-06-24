@@ -11,6 +11,7 @@ as empty seams that later tasks fill in.
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -18,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.routers import health, ncbi, ocr
+from app.services.jobs import JobRunner
 from app.utils.device import detect_device
 
 logging.basicConfig(
@@ -29,17 +31,28 @@ logger = logging.getLogger("app")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Resolve the compute device once at startup and stash it on app.state."""
+    """Resolve the compute device and start the OCR job runner at startup."""
     settings = get_settings()
     device = detect_device(settings.device)
     app.state.device = device
+
+    # Export the weights cache dir so transformers/HuggingFace uses it. This keeps
+    # the multi-GB model weights under the configured HF_HOME (see .env.example).
+    if settings.hf_home:
+        os.environ.setdefault("HF_HOME", settings.hf_home)
+
+    # Single-worker pool: a model typically can't serve concurrent GPU requests.
+    app.state.job_runner = JobRunner(max_workers=1)
+
     logger.info(
-        "%s started (environment=%s, device=%s)",
+        "%s started (environment=%s, device=%s, ocr_mock=%s)",
         settings.app_name,
         settings.environment,
         device,
+        settings.ocr_mock,
     )
     yield
+    app.state.job_runner.shutdown()
 
 
 def create_app() -> FastAPI:

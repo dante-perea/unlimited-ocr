@@ -19,7 +19,7 @@ einops==0.8.2
 addict==2.4.0
 easydict==1.13
 psutil==7.2.2
-# pymupdf is already pinned in requirements.txt (upstream tested 1.27.2.2).
+# pymupdf is pinned in requirements.txt at the upstream-tested 1.27.2.2.
 
 # Optional: high-throughput concurrent inference via SGLang.
 # A prebuilt wheel ships in vendor/Unlimited-OCR/wheel/ — install it directly,

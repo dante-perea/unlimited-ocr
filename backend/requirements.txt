@@ -3,7 +3,9 @@
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
 httpx==0.28.1
-pymupdf==1.25.2
+# PyMuPDF is used to render PDF pages to images for the OCR pipeline.
+# Pinned to the version upstream Unlimited-OCR tested on (Python 3.12 + CUDA 12.9).
+pymupdf==1.27.2.2
 pydantic==2.10.4
 pydantic-settings==2.7.1
 

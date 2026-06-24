@@ -125,7 +125,13 @@ compute device. CORS for `http://localhost:3000` is enabled by default
 | -------- | --------------------- | -------------------------- | ----------------------------------------- |
 | backend  | `backend/.env`        | `CORS_ORIGINS`             | Comma-separated allowed origins           |
 | backend  | `backend/.env`        | `DEVICE`                   | Force `cuda`/`mps`/`cpu` (blank = auto)   |
-| backend  | `backend/.env`        | `DATA_DIR`, `HF_HOME`      | Download/cache locations (later tasks)    |
+| backend  | `backend/.env`        | `DATA_DIR`, `HF_HOME`      | Download/cache locations                  |
+| backend  | `backend/.env`        | `PDF_CACHE_DIR`            | Where cached PMC PDFs live (NCBI writes)  |
+| backend  | `backend/.env`        | `OCR_MOCK`                 | `1` = canned OCR output, no GPU needed    |
+| backend  | `backend/.env`        | `OCR_MODEL_NAME`           | HF model id (default `baidu/Unlimited-OCR`)|
+| backend  | `backend/.env`        | `OCR_PDF_DPI`              | PDF→PNG rasterization DPI (default 300)   |
+| backend  | `backend/.env`        | `OCR_MAX_PAGES`            | Hard page cap per run (0 = no cap)        |
+| backend  | `backend/.env`        | `FACTS_EXTRACTOR`          | `heuristic` (built-in) or a registered one|
 | frontend | `frontend/.env.local` | `NEXT_PUBLIC_API_BASE_URL` | Backend base URL (inlined at build time)  |
 
 See `*/.env.example` for the full list.
@@ -141,11 +147,104 @@ host:
 
 ```bash
 make backend-ocr-deps     # torch, transformers, accelerate, ...
-# Weights download from HuggingFace (baidu/Unlimited-OCR) on first run — the
-# OCR task will wire this up. They are large; expect a multi-GB download.
+# Weights download from HuggingFace (baidu/Unlimited-OCR) on first run.
+# They are large; expect a multi-GB download cached under HF_HOME.
 ```
 
 See `backend/vendor/README.md` for details.
+
+---
+
+## OCR pipeline
+
+The backend runs Unlimited-OCR **locally** as an inference service. The flow:
+
+```
+POST /ocr/run {pmcid|pdf_path}
+        │  (enqueues an async job, returns {job_id, poll} immediately)
+        ▼
+  render PDF → PNG (PyMuPDF, DPI from OCR_PDF_DPI)
+        ▼
+  Unlimited-OCR  model.infer (1 page) / model.infer_multi (N pages)
+        ▼
+  normalize per-page text + concatenate → full_text
+        ▼
+  facts extraction (heuristic baseline) → {title, authors, findings, ...}
+        ▼
+GET /ocr/status/{job_id}  → {pages, full_text, facts, ...}
+```
+
+### Endpoints
+
+| Method | Path | Purpose |
+| ------ | ---- | ------- |
+| `POST` | `/ocr/run` | Enqueue OCR for a `pmcid` (resolved against the PDF cache) or a cached `pdf_path`. Body: `{pmcid?, pdf_path?, dpi?}`. Returns `202` + `{job_id, poll}`. |
+| `GET`  | `/ocr/status/{job_id}` | Poll a job. Returns `{status, result?, error?}`. `status` ∈ `queued`/`running`/`completed`/`failed`. A CUDA-requirement failure returns `422` with `{error_code: "gpu_required", message}`. |
+
+The response `result` (when `completed`) is `{pages:[{page_index,text}], full_text, facts, n_pages, device, mock}`.
+
+### Weights download
+
+Weights are **not** in the repo. On first real run, `transformers` downloads
+`baidu/Unlimited-OCR` from HuggingFace into `HF_HOME` (default `./.cache/huggingface`).
+To pre-download:
+
+```bash
+cd backend && source .venv/bin/activate
+export HF_HOME="$PWD/.cache/huggingface"        # where weights are cached
+huggingface-cli download baidu/Unlimited-OCR      # multi-GB
+```
+
+The exact upstream-tested dependency pins are in `backend/requirements-ocr.txt`
+(`torch==2.10.0`, `torchvision==0.25.0`, `transformers==4.57.1`, `pymupdf==1.27.2.2`, ...),
+mirroring the README of the upstream repo (Python 3.12 + CUDA 12.9).
+
+### MOCK / offline mode (no GPU)
+
+To build/develop the frontend **without a GPU**, enable mock mode — the backend
+returns canned OCR output (realistic markdown that exercises the whole pipeline
+including facts extraction), so no torch/weights are needed:
+
+```bash
+cd backend && source .venv/bin/activate
+export OCR_MOCK=1
+uvicorn app.main:app --reload --port 8000
+```
+
+(Mock output is flagged with `device: "mock"`, `mock: true` in the result.)
+
+### ⚠️ APPLE SILICON / non-CUDA reality
+
+**Unlimited-OCR is a CUDA + bfloat16 vision-language model.** Upstream's
+reference code loads it with `torch_dtype=torch.bfloat16` + `.cuda()`, and its
+custom inference code is CUDA-first — it is **not expected to work on Apple
+Silicon MPS or CPU**. If CUDA is unavailable, the loader tries MPS/CPU; if the
+model code then fails, the backend returns a single **actionable** error
+(`error_code: "gpu_required"`) instead of a cryptic traceback, explaining how to
+run on CUDA or enable mock mode.
+
+**To run REAL OCR, run the backend on an NVIDIA CUDA host:**
+
+```bash
+# on the GPU host:
+cd backend && source .venv/bin/activate
+pip install -r requirements-ocr.txt          # torch==2.10.0, transformers==4.57.1, ...
+export HF_HOME=/path/to/writable/cache        # weights download on first run
+uvicorn app.main:app --port 8000
+# then point the frontend at it: NEXT_PUBLIC_API_BASE_URL=http://<gpu-host>:8000
+```
+
+### Tests
+
+```bash
+cd backend && source .venv/bin/activate
+pytest -q            # 24 tests; runs in mock mode — no torch/weights required
+```
+
+The suite covers PDF→PNG rendering (PyMuPDF), the `/ocr/run` + `/ocr/status`
+endpoint contract (mock model), pmcid→cached-PDF resolution, the GPU-requirement
+failure path, the load-once singleton, and the heuristic facts extractor + its
+extension point.
 
 ---
 
@@ -177,6 +276,6 @@ The device chosen at startup is logged and surfaced in `GET /health`.
 - [x] FastAPI `/health`, CORS, settings, device detection
 - [x] Next.js placeholder + typed API client
 - [x] Unlimited-OCR vendored as a submodule
+- [x] OCR pipeline + structured-fact extraction (`/ocr`) + mock/offline mode
 - [ ] NCBI / PMC Open Access search + PDF download (`/ncbi`) — later task
-- [ ] OCR pipeline + structured-fact extraction (`/ocr`) — later task
 ```
