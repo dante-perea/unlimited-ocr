@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE PubmedArticleSet PUBLIC "-//NLM//DTD PubMedArticle, 1st January 2024//EN" "https://dtd.nlm.nih.gov/ncbi/pubmed/out/pubmed_240101.dtd">
+<PubmedArticleSet>
+  <PubmedArticle>
+    <MedlineCitation>
+      <PMID Version="1">28373852</PMID>
+      <Article>
+        <ArticleTitle>Imaging features of COVID-19: a pictorial review.</ArticleTitle>
+        <Abstract>
+          <AbstractText Label="BACKGROUND">This review summarises the typical radiological findings observed in patients.</AbstractText>
+          <AbstractText Label="CONCLUSION">Recognising the imaging patterns is essential for early diagnosis and management of the disease.</AbstractText>
+        </Abstract>
+      </Article>
+    </MedlineCitation>
+  </PubmedArticle>
+  <PubmedArticle>
+    <MedlineCitation>
+      <PMID Version="1">1993626</PMID>
+      <Article>
+        <ArticleTitle>Genome-wide analysis of host response to viral infection.</ArticleTitle>
+        <Abstract>
+          <AbstractText>Viral infections trigger complex transcriptional programs in host cells that determine the outcome of infection.</AbstractText>
+        </Abstract>
+      </Article>
+    </MedlineCitation>
+  </PubmedArticle>
+</PubmedArticleSet>

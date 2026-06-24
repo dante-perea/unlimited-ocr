@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<OA>
+  <responseDate>2019-01-28 10:41:16</responseDate>
+  <request id="PMC9999999">https://www.ncbi.nlm.nih.gov/utils/oa/oa.fcgi?id=PMC9999999</request>
+  <records returned-count="0" total-count="0">
+    <record id="PMC9999999" citation="Example J. 2020; 1(1):1-2" license="CC BY" retracted="no">
+    </record>
+  </records>
+</OA>

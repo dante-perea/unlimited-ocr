@@ -1,0 +1,13 @@
+{
+  "esearchresult": {
+    "count": "2",
+    "retmax": "2",
+    "retstart": "0",
+    "querykey": "1",
+    "webenv": "MOCK_WEBENV",
+    "idlist": ["5334499", "2787494"],
+    "translationset": [],
+    "translationstack": [],
+    "querytranslation": "covid[All Fields] AND open access[filter]"
+  }
+}

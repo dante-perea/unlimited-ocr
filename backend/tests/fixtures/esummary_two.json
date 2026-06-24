@@ -1,0 +1,49 @@
+{
+  "header": {"type": "esummary", "version": "0.3"},
+  "result": {
+    "uids": ["5334499", "2787494"],
+    "5334499": {
+      "uid": "5334499",
+      "pubdate": "2017 Feb 28",
+      "epubdate": "2017 Feb 28",
+      "source": "World J Radiol",
+      "authors": [
+        {"name": "Smith John", "authtype": "Author", "clusterid": "1"},
+        {"name": "Doe Jane", "authtype": "Author", "clusterid": "2"}
+      ],
+      "lastauthor": "Doe Jane",
+      "title": "Imaging features of COVID-19: a pictorial review.",
+      "fulljournalname": "World Journal of Radiology",
+      "volume": "9",
+      "issue": "2",
+      "pages": "27-33",
+      "articleids": [
+        {"idtype": "pubmed", "id": "28373852"},
+        {"idtype": "pmc", "id": "PMC5334499"},
+        {"idtype": "doi", "id": "10.5327/wjr.v9.i2.27"}
+      ],
+      "pubtype": ["Journal Article", "Review"]
+    },
+    "2787494": {
+      "uid": "2787494",
+      "pubdate": "2009 Dec",
+      "epubdate": "2009 Nov 24",
+      "source": "PLoS One",
+      "authors": [
+        {"name": "Garcia Maria", "authtype": "Author", "clusterid": "3"}
+      ],
+      "lastauthor": "Garcia Maria",
+      "title": "Genome-wide analysis of host response to viral infection.",
+      "fulljournalname": "PLoS ONE",
+      "volume": "4",
+      "issue": "12",
+      "pages": "e8235",
+      "articleids": [
+        {"idtype": "pubmed", "id": "1993626"},
+        {"idtype": "pmc", "id": "PMC2787494"},
+        {"idtype": "doi", "id": "10.1371/journal.pone.0008235"}
+      ],
+      "pubtype": ["Journal Article"]
+    }
+  }
+}

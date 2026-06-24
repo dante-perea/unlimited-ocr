@@ -42,7 +42,7 @@ unlimited-ocr/
 │   ├── app/
 │   │   ├── main.py            # FastAPI app factory, CORS, router wiring, lifespan
 │   │   ├── config.py          # pydantic-settings (.env) configuration
-│   │   ├── routers/           # health.py (live) + ncbi.py / ocr.py (empty seams)
+│   │   ├── routers/           # health.py + ncbi.py (search/paper/fetch live) + ocr.py (seam)
 │   │   └── utils/device.py    # cuda → mps → cpu detection (+ logging)
 │   ├── vendor/Unlimited-OCR/  # git submodule (code only)
 │   ├── requirements.txt       # core API deps (pinned)
@@ -126,9 +126,49 @@ compute device. CORS for `http://localhost:3000` is enabled by default
 | backend  | `backend/.env`        | `CORS_ORIGINS`             | Comma-separated allowed origins           |
 | backend  | `backend/.env`        | `DEVICE`                   | Force `cuda`/`mps`/`cpu` (blank = auto)   |
 | backend  | `backend/.env`        | `DATA_DIR`, `HF_HOME`      | Download/cache locations (later tasks)    |
+| backend  | `backend/.env`        | `PDF_CACHE_DIR`            | Where fetched PMC PDFs are cached         |
+| backend  | `backend/.env`        | `NCBI_API_KEY`             | Optional — raises E-utility limit 3→10/s  |
+| backend  | `backend/.env`        | `NCBI_TOOL`, `NCBI_EMAIL`  | NCBI contact policy (tool/email params)   |
 | frontend | `frontend/.env.local` | `NEXT_PUBLIC_API_BASE_URL` | Backend base URL (inlined at build time)  |
 
 See `*/.env.example` for the full list.
+
+---
+
+## NCBI / PMC Open Access endpoints (`/ncbi`)
+
+The backend can browse and fetch **free-access** papers from PubMed Central.
+All upstream HTTP is async (`httpx`) and rate-limited to NCBI's policy
+(3 requests/second without `NCBI_API_KEY`, 10/second with it).
+
+```bash
+# Search the PMC Open Access subset (auto-filtered to "open access[filter]").
+curl 'http://localhost:8000/ncbi/search?query=CRISPR&page=1&page_size=20'
+# -> { query, page, page_size, total_results, total_pages, results: [ { pmcid,
+#      pmid, doi, title, authors, journal, year, abstract_snippet } ... ] }
+
+# Metadata + full-text download URL(s) resolved via the PMC OA Web Service.
+curl 'http://localhost:8000/ncbi/paper/PMC10000000'
+# -> { pmcid, pmid, doi, title, authors, journal, year, license, citation,
+#      retracted, abstract_snippet, downloads: [ { format: "pdf"|"tgz", url, updated } ] }
+
+# Download/extract the PDF into the local cache (PDF_CACHE_DIR) and return its path.
+curl -X POST 'http://localhost:8000/ncbi/fetch/PMC10000000'
+# -> { pmcid, status: "cached"|"downloaded"|"extracted"|"unavailable",
+#      source_format: "pdf"|"tgz"|"none", pdf_path, filename, size_bytes, message }
+```
+
+`POST /ncbi/fetch/{pmcid}` prefers a direct PDF link; if only a `.tar.gz` OA
+package exists, it downloads it and extracts the embedded PDF. The cached PDF is
+written to `<PDF_CACHE_DIR>/PMC<id>.pdf` — exactly the path the OCR pipeline will
+consume by `pmcid` (see `OcrRunRequest.pmcid` in `backend/app/schemas/ocr.py`).
+When no PDF is available it returns `status: "unavailable"` (200, not an error).
+
+Backend tests (offline, with recorded fixtures):
+
+```bash
+cd backend && pip install -r requirements.txt -r requirements-dev.txt && pytest -q
+```
 
 ---
 
@@ -177,6 +217,6 @@ The device chosen at startup is logged and surfaced in `GET /health`.
 - [x] FastAPI `/health`, CORS, settings, device detection
 - [x] Next.js placeholder + typed API client
 - [x] Unlimited-OCR vendored as a submodule
-- [ ] NCBI / PMC Open Access search + PDF download (`/ncbi`) — later task
+- [x] NCBI / PMC Open Access search + PDF download (`/ncbi`) — ESearch/ESummary/EFetch + PMC OA service; PDFs cached for the OCR task
 - [ ] OCR pipeline + structured-fact extraction (`/ocr`) — later task
 ```

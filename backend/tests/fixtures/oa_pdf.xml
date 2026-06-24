@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<OA>
+  <responseDate>2019-01-28 10:41:16</responseDate>
+  <request id="PMC5334499">https://www.ncbi.nlm.nih.gov/utils/oa/oa.fcgi?id=PMC5334499</request>
+  <records returned-count="2" total-count="2">
+    <record id="PMC5334499" citation="World J Radiol. 2017 Feb 28; 9(2):27-33" license="CC BY-NC" retracted="no">
+      <link format="tgz" updated="2017-03-17 13:10:45" href="ftp://ftp.ncbi.nlm.nih.gov/pub/pmc/oa_package/8e/71/PMC5334499.tar.gz"/>
+      <link format="pdf" updated="2017-03-03 06:05:17" href="ftp://ftp.ncbi.nlm.nih.gov/pub/pmc/oa_pdf/8e/71/WJR-9-27.PMC5334499.pdf"/>
+    </record>
+  </records>
+</OA>

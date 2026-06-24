@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<OA>
+  <responseDate>2019-01-28 10:41:16</responseDate>
+  <request id="PMC2787494">https://www.ncbi.nlm.nih.gov/utils/oa/oa.fcgi?id=PMC2787494</request>
+  <records returned-count="1" total-count="1">
+    <record id="PMC2787494" citation="PLoS One. 2009; 4(12):e8235" license="CC BY" retracted="no">
+      <link format="tgz" updated="2009-12-01 12:00:00" href="ftp://ftp.ncbi.nlm.nih.gov/pub/pmc/oa_package/ab/cd/PMC2787494.tar.gz"/>
+    </record>
+  </records>
+</OA>
