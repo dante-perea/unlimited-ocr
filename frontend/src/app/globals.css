@@ -22,5 +22,32 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Long-form typography for rendered OCR markdown. */
+.prose-md {
+  color: rgb(63 63 70); /* zinc-700 */
+  font-size: 0.975rem;
+  line-height: 1.75;
+  word-break: break-word;
+}
+@media (prefers-color-scheme: dark) {
+  .prose-md {
+    color: rgb(212 212 216); /* zinc-300 */
+  }
+}
+
+/* Subtle, native-feeling scrollbars for code/table overflow areas. */
+.prose-md pre::-webkit-scrollbar,
+.overflow-x-auto::-webkit-scrollbar {
+  height: 8px;
+}
+.prose-md pre::-webkit-scrollbar-thumb,
+.overflow-x-auto::-webkit-scrollbar-thumb {
+  background: rgb(161 161 170 / 0.5);
+  border-radius: 9999px;
 }
