@@ -63,6 +63,19 @@ class Settings(BaseSettings):
     # names may be registered via app.services.facts.register_fact_extractor.
     facts_extractor: str = "heuristic"
 
+    # ---- NCBI / PMC Open Access (search + PDF fetch) ------------------------
+    # Optional NCBI API key. When set, the E-utility rate limit is raised from
+    # 3 requests/second to 10 requests/second.
+    ncbi_api_key: str = ""
+    # Tool name and contact email sent with every E-utility request (NCBI policy).
+    ncbi_tool: str = "unlimited-ocr-backend"
+    ncbi_email: str = ""
+    # E-utilities + PMC Open Access Web Service base URLs (rarely changed).
+    ncbi_eutils_base_url: str = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+    ncbi_oa_base_url: str = "https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi"
+    # HTTP timeout (seconds) for upstream NCBI / PMC requests.
+    ncbi_request_timeout: float = 30.0
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Return ``cors_origins`` parsed into a clean list of origins."""
@@ -72,6 +85,25 @@ class Settings(BaseSettings):
     def pdf_cache_dir_resolved(self) -> str:
         """Return the PDF cache dir, defaulting to ``data_dir/pdfs``."""
         return self.pdf_cache_dir.strip() or f"{self.data_dir.rstrip('/')}/pdfs"
+
+    @property
+    def ncbi_cache_dir_resolved(self) -> str:
+        """Directory where NCBI-fetched PDFs are cached.
+
+        Intentionally resolves to the same location as :attr:`pdf_cache_dir_resolved`
+        so ``POST /ncbi/fetch/{pmcid}`` writes the PDF where ``POST /ocr/run``
+        reads it — the two features share one on-disk cache.
+        """
+        return self.pdf_cache_dir_resolved
+
+    @property
+    def rate_per_second(self) -> float:
+        """Maximum E-utility requests per second given the current API key."""
+        return 10.0 if self.ncbi_api_key else 3.0
+
+    @property
+    def has_api_key(self) -> bool:
+        return bool(self.ncbi_api_key)
 
 
 @lru_cache

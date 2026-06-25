@@ -13,12 +13,14 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.routers import health, ncbi, ocr
+from app.routers.ncbi import close_ncbi_services
 from app.services.jobs import JobRunner
 from app.utils.device import detect_device
 
@@ -44,6 +46,9 @@ async def lifespan(app: FastAPI):
     # Single-worker pool: a model typically can't serve concurrent GPU requests.
     app.state.job_runner = JobRunner(max_workers=1)
 
+    # Ensure the shared PDF cache dir exists (used by both /ncbi/fetch and /ocr/run).
+    Path(settings.ncbi_cache_dir_resolved).mkdir(parents=True, exist_ok=True)
+
     logger.info(
         "%s started (environment=%s, device=%s, ocr_mock=%s)",
         settings.app_name,
@@ -53,6 +58,7 @@ async def lifespan(app: FastAPI):
     )
     yield
     app.state.job_runner.shutdown()
+    await close_ncbi_services()
 
 
 def create_app() -> FastAPI:

@@ -4,13 +4,14 @@ A **local** web app to browse free-access biomedical papers and extract their
 full text + structured facts with [Baidu Unlimited-OCR](https://github.com/baidu/Unlimited-OCR),
 running entirely on your own hardware.
 
-**End-to-end flow (full project):** search PubMed Central Open Access → pick a
-paper → the app downloads its PDF → Unlimited-OCR runs locally → the UI shows
-the extracted text and facts.
+**End-to-end flow:** search PubMed Central Open Access → pick a paper → the app
+downloads its PDF → Unlimited-OCR runs locally → the UI shows the extracted text
+and facts.
 
-> **This repository is the foundation scaffold.** The backend exposes `/health`
-> today; NCBI search and the OCR pipeline are mounted as empty seams (`/ncbi`,
-> `/ocr`) that later tasks fill in.
+> The full flow is implemented and demoable **without a GPU**. Set `OCR_MOCK=1`
+> and the OCR step returns canned, realistic output (full text + a populated
+> Facts panel), so you can drive the whole UI end-to-end on any machine. See
+> [Using the app](#using-the-app-end-to-end-flow).
 
 ---
 
@@ -22,9 +23,9 @@ the extracted text and facts.
 │  App Router · TS · Tailwind   │ ──────► │                                    │
 │                               │  CORS   │  app/main.py    app factory + CORS │
 │  src/lib/api.ts  ── typed ────┼────────►│  routers/health.py   GET /health   │
-│      client (NEXT_PUBLIC_     │         │  routers/ncbi.py     /ncbi  (seam)  │
-│      API_BASE_URL)            │         │  routers/ocr.py      /ocr   (seam)  │
-│  src/app/page.tsx  placeholder│         │  utils/device.py  cuda│mps│cpu      │
+│      client (NEXT_PUBLIC_     │         │  routers/ncbi.py   search/fetch/pdf │
+│      API_BASE_URL)            │         │  routers/ocr.py    run + status     │
+│  src/app/page.tsx  full flow  │         │  utils/device.py  cuda│mps│cpu      │
 └──────────────────────────────┘         │  config.py  pydantic-settings/.env │
                                           └──────────────┬─────────────────────┘
                                                          │ imports (later task)
@@ -42,7 +43,7 @@ unlimited-ocr/
 │   ├── app/
 │   │   ├── main.py            # FastAPI app factory, CORS, router wiring, lifespan
 │   │   ├── config.py          # pydantic-settings (.env) configuration
-│   │   ├── routers/           # health.py (live) + ncbi.py / ocr.py (empty seams)
+│   │   ├── routers/           # health.py + ncbi.py (search/fetch) + ocr.py (run/status)
 │   │   └── utils/device.py    # cuda → mps → cpu detection (+ logging)
 │   ├── vendor/Unlimited-OCR/  # git submodule (code only)
 │   ├── requirements.txt       # core API deps (pinned)
@@ -50,7 +51,7 @@ unlimited-ocr/
 │   └── .env.example
 ├── frontend/
 │   ├── src/lib/api.ts         # typed backend client
-│   ├── src/app/page.tsx       # placeholder page (pings /health)
+│   ├── src/app/page.tsx       # full flow: search → select → results (components/ + lib/markdown.tsx)
 │   └── .env.example
 ├── Makefile                   # dev tasks (setup / backend / frontend)
 └── .gitignore
@@ -113,9 +114,88 @@ cp .env.example .env.local      # optional — defaults to http://localhost:8000
 npm run dev                     # http://localhost:3000
 ```
 
-The placeholder page pings the backend `/health` and shows the resolved
+The page drives the full flow (search → select → results) against the backend.
+A small status pill in the header shows backend reachability + the resolved
 compute device. CORS for `http://localhost:3000` is enabled by default
 (configure via `CORS_ORIGINS` in `backend/.env`).
+
+> **Tip — demo without a GPU:** start the backend with `OCR_MOCK=1` so the OCR
+> step returns canned, realistic output. The whole UI flow then works on any
+> machine (see [Using the app](#using-the-app-end-to-end-flow)).
+
+---
+
+## Using the app (end-to-end flow)
+
+The web UI is a single-page, three-step experience (with a progress indicator at
+the top). It talks to the backend through the typed client in
+`frontend/src/lib/api.ts`.
+
+1. **Search** — type a free-text query (Entrez syntax) in the search box and hit
+   **Search**. It calls `GET /ncbi/search` against the PMC Open Access subset and
+   renders a paginated list: title, authors, journal, year, and an abstract
+   snippet. Use **Prev / Next** to page through results (try the example chips on
+   a first visit).
+
+2. **Select** — click a paper to open its detail view (metadata + an abstract).
+   Press **Run OCR**. The app then:
+   - `POST /ncbi/fetch/{pmcid}` — downloads the article's PDF into the shared
+     local cache (direct PDF, or extracted from the PMC OA `.tar.gz` package),
+   - `POST /ocr/run` — enqueues an async OCR job and gets a `job_id`,
+   - polls `GET /ocr/status/{job_id}` every second, showing a live
+     **Fetch → Queue → Run → Done** progress indicator (OCR is slow).
+
+3. **Results** — once the job completes you get three tabs plus actions:
+   - **Full text** — the extracted document rendered as Markdown (headings,
+     lists, tables, code).
+   - **Pages** — a page-by-page view with prev/next navigation.
+   - **Facts** — a structured panel: title, authors, abstract, key findings,
+     entities, and detected tables, produced by the backend's fact extractor.
+   - **Copy text** copies the full extracted text; **Download JSON** saves the
+     full OCR result (`{ paper, ocr }`) as `{pmcid}-ocr.json`.
+
+Loading, error, and empty states are handled throughout (search failures,
+backend offline, "no PDF available", OCR failures, empty pages/facts).
+
+### Running the full flow locally
+
+```bash
+# Terminal 1 — backend (mock OCR so no GPU is needed)
+cd backend
+source .venv/bin/activate
+OCR_MOCK=1 uvicorn app.main:app --reload --port 8000
+
+# Terminal 2 — frontend
+cd frontend
+npm run dev        # http://localhost:3000
+```
+
+Open <http://localhost:3000>, search for e.g. `mitochondrial dynamics`, pick a
+paper, and click **Run OCR**. With `OCR_MOCK=1` the result is canned (a "mock
+OCR" badge is shown); the PDF fetch + page rendering still use a real downloaded
+PDF, so the page count reflects the actual document.
+
+### Mock / offline OCR mode
+
+Set `OCR_MOCK=1` (or `OCR_MOCK=true`) to skip loading the real
+CUDA/bfloat16 model and return canned Markdown instead. The canned content is
+crafted to exercise the fact extractor (title, authors, abstract, key findings,
+entities, tables, DOI, PMCID), so the **Facts** panel is populated and the UI can
+be demoed end-to-end without torch or model weights. Real OCR requires an
+NVIDIA CUDA host — see the **HARDWARE NOTE** below.
+
+### Backend API summary
+
+| Method & path                  | Purpose                                                        |
+| ------------------------------ | ------------------------------------------------------------- |
+| `GET  /health`                 | Liveness + resolved compute device                            |
+| `GET  /ncbi/search`            | Search PMC Open Access (query, page, page_size)               |
+| `GET  /ncbi/paper/{pmcid}`     | Metadata + OA download links for a paper                      |
+| `POST /ncbi/fetch/{pmcid}`     | Download/cache the PDF (the OCR step reads this cache)        |
+| `POST /ocr/run`                | Enqueue an OCR job (`{pmcid}` or `pdf_path`); returns job id  |
+| `GET  /ocr/status/{job_id}`    | Poll a job (queued → running → completed/failed + result)     |
+
+Interactive docs are at <http://localhost:8000/docs>.
 
 ---
 
@@ -125,7 +205,9 @@ compute device. CORS for `http://localhost:3000` is enabled by default
 | -------- | --------------------- | -------------------------- | ----------------------------------------- |
 | backend  | `backend/.env`        | `CORS_ORIGINS`             | Comma-separated allowed origins           |
 | backend  | `backend/.env`        | `DEVICE`                   | Force `cuda`/`mps`/`cpu` (blank = auto)   |
-| backend  | `backend/.env`        | `DATA_DIR`, `HF_HOME`      | Download/cache locations (later tasks)    |
+| backend  | `backend/.env`        | `OCR_MOCK`                 | `1` = canned OCR output (no GPU needed)   |
+| backend  | `backend/.env`        | `NCBI_API_KEY`             | Optional; raises the E-utilities rate limit |
+| backend  | `backend/.env`        | `DATA_DIR`, `PDF_CACHE_DIR`, `HF_HOME` | Download / cache / weights locations |
 | frontend | `frontend/.env.local` | `NEXT_PUBLIC_API_BASE_URL` | Backend base URL (inlined at build time)  |
 
 See `*/.env.example` for the full list.
@@ -175,8 +257,8 @@ The device chosen at startup is logged and surfaced in `GET /health`.
 
 - [x] Monorepo scaffold (backend + frontend)
 - [x] FastAPI `/health`, CORS, settings, device detection
-- [x] Next.js placeholder + typed API client
+- [x] NCBI / PMC Open Access search + metadata + PDF fetch (`/ncbi`)
+- [x] OCR pipeline + async jobs + structured-fact extraction (`/ocr`) + `OCR_MOCK` mode
+- [x] Next.js full flow UI: search → select → results (text/pages/facts) + copy/download
 - [x] Unlimited-OCR vendored as a submodule
-- [ ] NCBI / PMC Open Access search + PDF download (`/ncbi`) — later task
-- [ ] OCR pipeline + structured-fact extraction (`/ocr`) — later task
 ```
