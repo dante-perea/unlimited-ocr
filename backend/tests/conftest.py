@@ -1,24 +1,37 @@
-"""Shared test fixtures and helpers for the NCBI integration.
+"""Shared pytest fixtures for the backend.
 
-Upstream NCBI/PMC calls are mocked with :class:`httpx.MockTransport`, injected
-directly into the :class:`NcbiService` (the service accepts a custom ``client``).
-The FastAPI ``get_ncbi_service`` dependency is overridden so the router uses the
-mocked service. Tests run fully offline.
+Covers two areas:
+
+* **NCBI integration** — upstream NCBI/PMC calls are mocked with
+  :class:`httpx.MockTransport`, injected directly into the
+  :class:`NcbiService` (the service accepts a custom ``client``). The FastAPI
+  ``get_ncbi_service`` dependency is overridden so the router uses the mocked
+  service. These tests run fully offline.
+
+* **OCR pipeline** — the whole suite runs in mock/offline mode
+  (``OCR_MOCK=1``) so it never needs torch, transformers, or model weights.
+  Endpoint tests additionally reset the in-memory settings cache per-test so
+  ``model_copy`` overrides / env flags don't leak between tests.
 """
 
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Callable
+
+# Force mock/offline mode for the entire suite before any app import.
+os.environ["OCR_MOCK"] = "1"
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app.config import Settings
+from app.config import Settings, get_settings
 from app.main import app
 from app.services.ncbi import NcbiService, RateLimiter, get_ncbi_service
+from app.services import ocr_model
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -29,6 +42,21 @@ def load_json(name: str) -> Any:
 
 def load_text(name: str) -> str:
     return (FIXTURES_DIR / name).read_text()
+
+
+# --------------------------------------------------------------------------- #
+# Per-test cache resets (OCR pipeline)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture(autouse=True)
+def _reset_caches():
+    """Reset the settings cache + model singleton before each test."""
+    get_settings.cache_clear()
+    ocr_model.reset_model()
+    yield
+    get_settings.cache_clear()
+    ocr_model.reset_model()
 
 
 # --------------------------------------------------------------------------- #
@@ -78,7 +106,7 @@ class NcbiMock:
 
 
 # --------------------------------------------------------------------------- #
-# Fixtures
+# NCBI fixtures
 # --------------------------------------------------------------------------- #
 
 
@@ -119,3 +147,40 @@ def client(install_service, monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     with TestClient(app) as c:
         yield c
+
+
+# --------------------------------------------------------------------------- #
+# Synthetic PDF fixtures (OCR pipeline) — built with PyMuPDF (no network/disk).
+# --------------------------------------------------------------------------- #
+
+def _make_pdf(path: Path, pages: list[str]) -> Path:
+    import fitz  # PyMuPDF
+
+    doc = fitz.open()
+    for text in pages:
+        page = doc.new_page()
+        page.insert_text((72, 72), text, fontsize=12)
+    doc.save(str(path))
+    doc.close()
+    return path
+
+
+@pytest.fixture()
+def sample_pdf(tmp_path: Path) -> Path:
+    """A 2-page PDF with a heading + author byline on page 1."""
+    return _make_pdf(
+        tmp_path / "sample.pdf",
+        [
+            "Title: A Sample Paper\nAlice B. Author, Bob C. Writer",
+            "## Abstract\nWe show that the test passes. Our results confirm it.",
+        ],
+    )
+
+
+@pytest.fixture()
+def multipage_pdf(tmp_path: Path) -> Path:
+    """A 3-page PDF used to exercise the multi-page (infer_multi) path."""
+    return _make_pdf(
+        tmp_path / "multi.pdf",
+        ["Page one content", "Page two content", "Page three content"],
+    )

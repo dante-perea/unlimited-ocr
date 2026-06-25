@@ -34,6 +34,11 @@ backend-setup: ## Create the backend venv and install core deps
 backend-ocr-deps: ## Install heavy OCR deps (torch/transformers) — CUDA host recommended
 	$(VENV_BIN)/pip install -r $(BACKEND_DIR)/requirements-ocr.txt
 
+.PHONY: test
+test: ## Run backend tests (mock mode; no torch/weights required)
+	cd $(BACKEND_DIR) && .venv/bin/pip install -r requirements-dev.txt -q || true
+	cd $(BACKEND_DIR) && OCR_MOCK=1 .venv/bin/pytest -q
+
 .PHONY: backend
 backend: ## Run the FastAPI backend (uvicorn with reload)
 	cd $(BACKEND_DIR) && .venv/bin/uvicorn app.main:app --reload --port $(BACKEND_PORT)
